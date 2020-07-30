@@ -10,7 +10,7 @@ from flask_wtf import CSRFProtect
 from redis import StrictRedis
 
 from config import config
-from info.module.index import index_blu
+
 
 # 初始化SQLAlchemy
 db = SQLAlchemy()
@@ -29,9 +29,12 @@ def create_log():
     logging.getLogger().addHandler(file_log_handler)
 
 
+# 定义 redis_store
+redis_store = None
+
+
 # 工厂方式创建好app 将其返回出去
 def create_app(config_name):
-    """通过传入不同的配置名字，初始化其对应配置的应用实例"""
     # 项目一跑起来就开启日志
     create_log()
     app = Flask(__name__)
@@ -41,15 +44,20 @@ def create_app(config_name):
     # 加载数据库调用SQLAlchemy内部初始app SQLAlchemy(app)
     db.init_app(app)
     # 加载redis
-    redis_store = StrictRedis(host=config[config_name].REDIS_HOST, port=config[config_name].REDIS_PORT)
+    global redis_store
+    # 1.获取到redis_store
+    # decode_responses=True 保证redis获取数据的时候是一个字符串
+    redis_store = StrictRedis(host=config[config_name].REDIS_HOST, port=config[config_name].REDIS_PORT,decode_responses=True)
     # 5 添加csrf
-    CSRFProtect(app)
+    # CSRFProtect(app)
     # 加载session
     Session(app)
 
-    # 添加 index 路由
+    # 添加 index 路由 这个路由模块中可以获取 redis_store
+    from info.module.index import index_blu
     app.register_blueprint(index_blu)
+    # 添加图片验证路由
+    from info.module.passport import passport_blu
+    app.register_blueprint(passport_blu)
+    print(app.url_map)
     return app
-
-
-
